@@ -86,7 +86,7 @@ def main():
                     ref_link = random.choice(ref_links).strip()
                     logger.info(f"Account referal: {ref_link[ref_link.index('?'):]}")
 
-                    main_blum(path.strip(), ref_link)                                                     #sub main
+                    main_blum(path.strip(), ref_link)                                                    #sub main
                     break
                 else:
                     logger.warning('Launch proxyfier firstly')
