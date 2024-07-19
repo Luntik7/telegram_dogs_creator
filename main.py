@@ -1,20 +1,68 @@
 from linecache import cache
 import time
-from telegram import TelegramAppHOT, TelegramDogs
+from telegram import TelegramApp,TelegramAppHOT, TelegramDogs, TelegramAppBlum
 from loguru import logger
 import random
 
+TRIES_COUNT = 3
+CHECK_WEBVIEW_INSPECTIOIN = False
+counter = 0
+
+def main_blum(path, ref_link):
+    global counter
+    telegram_app = TelegramAppBlum(path)
+    if CHECK_WEBVIEW_INSPECTIOIN:
+        telegram_app.turn_on_webview_inspecting()
+    telegram_app.launch_blum(ref_link)
+    telegram_app.manage_account_and_open_devtools()
+    data = telegram_app.collect_data()
+
+
+    with open('proxies.txt', 'r', encoding='utf-8') as fileobj:
+        proxies_list = fileobj.readlines()
+    number = TelegramAppBlum.get_account_number_from_path(path)
+    if number:
+        proxy = proxies_list[number].strip()
+    else:
+        proxy = proxies_list[counter].strip()
+        
+    counter = (counter + 1)
+
+    data['proxy'] = proxy
+    telegram_app.append_to_json_file('blum.json', data)
+
+        
+
+    time.sleep(0.3)
+    telegram_app.quit_telegram()
+    time.sleep(1)
+
 
 def main_hot():
-    telegram_app = TelegramAppHOT('D:\\DATA\\Python\\Tdata_unpack\\all_telegrams\\172\\+6283176166127\\Telegram.exe')
-    # telegram_app.turn_on_webview_inspecting()
-    telegram_app.launch_hot(10)
-    telegram_app.open_dev_tools(10)
+    if TelegramAppHOT.is_proxifier_running():
+        TelegramAppHOT.stop_telegram_processes()
+        telegram_app = TelegramAppHOT('D:\\DATA\\Python\\Tdata_unpack\\all_telegrams\\172\\+6283176166127\\Telegram.exe')
+        if CHECK_WEBVIEW_INSPECTIOIN:
+            telegram_app.turn_on_webview_inspecting()
+        telegram_app.launch_hot('https://t.me/herewalletbot/app')
+        telegram_app.open_dev_tools(10)
+        telegram_app.collect_data()
+        
+        # TelegramAppHOT.test_devtools()
 
 
-def main_dogs():
-    TRIES_COUNT = 3
-    
+def main_dogs(path, ref_link):
+    telegramDogs = TelegramDogs(path)
+    telegramDogs.set_random_nicknames(10)
+    telegramDogs.launch_dogs(ref_link)
+    telegramDogs.work_with_dogs()
+    time.sleep(0.3)
+    telegramDogs.quit_telegram()
+    time.sleep(1)
+
+
+def main():
+    logger.add("file.log", level="DEBUG")
     
     with open('all_refs.txt', 'r', encoding='utf-8') as fileobj:
         ref_links = fileobj.readlines()
@@ -30,21 +78,15 @@ def main_dogs():
                 else:
                     short_path = path[-40:]
 
-                if TelegramDogs.is_proxifier_running():
+                if TelegramApp.is_proxifier_running():
+                    TelegramApp.stop_telegram_processes()
+                    time.sleep(1)
                     logger.info(f"Start account ...{short_path}")
 
                     ref_link = random.choice(ref_links).strip()
                     logger.info(f"Account referal: {ref_link[ref_link.index('?'):]}")
 
-                    TelegramDogs.stop_telegram_processes()
-                    time.sleep(1)
-                    telegramDogs = TelegramDogs(path.strip())
-                    telegramDogs.set_random_nicknames(10)
-                    telegramDogs.launch_dogs(ref_link)
-                    telegramDogs.work_with_dogs()
-                    time.sleep(0.3)
-                    telegramDogs.quit_telegram()
-                    time.sleep(1)
+                    main_blum(path.strip(), ref_link)                                                     #sub main
                     break
                 else:
                     logger.warning('Launch proxyfier firstly')
@@ -62,9 +104,5 @@ def main_dogs():
     input()
 
 
-
 if __name__ == '__main__':
-    logger.add("file.log", level="DEBUG")
-    main_dogs()
-
-
+    main()

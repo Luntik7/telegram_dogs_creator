@@ -1,5 +1,4 @@
 from pywinauto import Application
-from pywinauto.mouse import scroll
 from pywinauto import mouse
 from pywinauto.keyboard import send_keys
 from img_detection import *
@@ -8,6 +7,7 @@ from random_word import RandomWords
 import pyperclip
 import psutil
 from loguru import logger
+from devtools import *
 
 
 class TelegramApp:
@@ -132,9 +132,28 @@ class TelegramApp:
 
     def quit_telegram(self):
         self.main_window.set_focus()
-        time.sleep(0.5)
+        time.sleep(0.1)
+        self.main_window.set_focus()
+        time.sleep(0.3)
         send_keys('^q')
         logger.info("Telegram closed with ^q.")
+
+
+    @staticmethod
+    def get_random_word_with_length( min_length, max_length):
+        r = RandomWords()
+        while True:
+            word = r.get_random_word()
+            if min_length <= len(word) <= max_length:
+                return word
+
+
+    @staticmethod
+    def get_nickname():
+        word1 = TelegramApp.get_random_word_with_length(3,5)
+        word2 = TelegramApp.get_random_word_with_length(3,5)
+        nickname = f"{word1}{word2}"
+        return nickname
 
     
     @staticmethod
@@ -156,6 +175,16 @@ class TelegramApp:
             if process.info['name'] == 'Proxifier.exe':
                 return True
         return False
+    
+
+    @staticmethod
+    def get_account_number_from_path(path):
+        try:
+            formatted_str = path[path.index('all_telegrams')+14:].strip()
+            end_str = formatted_str[:formatted_str.index("\\")]
+            return int(end_str)
+        except:
+            return None
 
 
 class TelegramDogs(TelegramApp):
@@ -164,24 +193,9 @@ class TelegramDogs(TelegramApp):
         self.dogs_window = None
 
 
-    def get_random_word_with_length(self, min_length, max_length):
-        r = RandomWords()
-        while True:
-            word = r.get_random_word()
-            if min_length <= len(word) <= max_length:
-                return word
-
-
-    def get_nickname(self):
-        word1 = self.get_random_word_with_length(3,5)
-        word2 = self.get_random_word_with_length(3,5)
-        nickname = f"{word1}{word2}"
-        return nickname
-    
-
     def set_random_nicknames(self, tries_count=5, delay=0.2):
         for i in range(tries_count):
-            if self.set_nickname(self.get_nickname(),delay):
+            if self.set_nickname(TelegramDogs.get_nickname(),delay):
                 break
 
     
@@ -222,82 +236,265 @@ class TelegramDogs(TelegramApp):
         logger.info('Dogs successfully claimed!')
 
 
-
-
-
 class TelegramAppHOT(TelegramApp):
     def __init__(self, exe_path):
         super().__init__(exe_path)
         self.hot_window = None
-        self.dev_tools_window = None
+        self.devtools = None
 
 
-    def launch_hot(self, tries_count):
+    def launch_hot(self, link, sleep_before_launch=3, tries_count=30):
         time.sleep(2)
         old_windows = list(self.app.windows())
 
         for i in range(tries_count):
-            send_keys("HOT{SPACE}Wallet")
-            time.sleep(0.5)
-            send_keys("{ENTER}")
-            time.sleep(0.5)
-            if click_on_img(self.main_window, 'templates\\hot\\launch_hot.png', 0.5, 5, 0.9):
+            self.write_to_saved_messages(link)
+            time.sleep(sleep_before_launch)
+            if click_on_img(self.main_window, 'templates\\hot\\launch.png', 0.5, 2, 0.9):
                 break
-            send_keys("{ESC}")
-            time.sleep(1)
 
         for i in range(tries_count):
-            new_windows = list(self.app.windows())
+            if get_img_coords(self.main_window, 'templates\\hot\\allow_msg.png', 0.5, 10, 0.9):
+                click_on_img(self.main_window, 'templates\\hot\\OK.png', 0.5, 5, 0.9)
 
+            new_windows = list(self.app.windows())
             if len(new_windows) > len(old_windows):
                 unique_windows = [w for w in new_windows if w not in old_windows]
                 self.hot_window = unique_windows[0]
                 if self.hot_window:
-                    print('HOT launched successfully!')
-                    break
+                    logger.info('HOT window successfully launched!')
+                    return True
             time.sleep(1)
+
+        raise Exception('HOT window do not launched.')
 
 
     def open_dev_tools(self, wait):         #do not work
         if self.hot_window is None:
             print('No HOT window!')
             return 0
-        
-        old_windows = list(self.app.windows())
-        # self.get_windows_print()
 
         click_on_img(self.hot_window, 'templates\\hot\\main_page_arrow.png', 0.5, 5, 0.9)   #mb hot_window problem
         time.sleep(0.5)
         send_keys("{F12}")
         time.sleep(1)
 
+        self.devtools = DevTools()
         
-        # self.dev_tools_window = self.app.top_window()
-        # print('-'*30)
-        # self.get_windows_print()
-        print('-'*30)
-        childrens = self.hot_window.children()
-        for window in childrens:
-            if window.class_name() == "Chrome_WidgetWin_1":
-                devtools_window = window
+
+    def collect_data(self):
+        data = self.devtools.prepare_and_get_tgWebAppData()
+        print(data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    @staticmethod
+    def test_devtools():
+        devtools = DevTools()
+
+        app_btn_control = devtools.get_Application_btn_control()
+        app_btn_control.click_input()
+
+        herewallet_control = devtools.get_session_storage_herewallet_control()
+        if not herewallet_control:
+            session_storage_control = devtools.get_session_storage_control()
+            session_storage_control.double_click_input()
+
+        herewallet_control = devtools.get_session_storage_herewallet_control()
+        herewallet_control.click_input()
+
+        webAppData = devtools.get__tgWebAppData()
+        print(webAppData)
+
+
+    @staticmethod
+    def get_control_data(window):
+        children = window.children()
+        print()
+        for control in children:
+            # Отримуємо дані про контрол
+            control_text = control.window_text()
+            control_rect = control.rectangle()
+            control_width = control_rect.width()
+            control_height = control_rect.height()
+            control_class = control.class_name()
+            print(f"Текст контролу: {control_text}")
+            print(f"Ім'я класу контролу: {control_class}")
+            print(f"Розміри контролу: {control_width}x{control_height}")
+            print()
+
+
+    @staticmethod
+    def print_window_info(window):
+        window_title = window.window_text()
+        window_class = window.class_name()
+        window_rect = window.rectangle()
+        window_position = (window_rect.left, window_rect.top)
+        window_size = (window_rect.width(), window_rect.height())
+
+        print(f"Заголовок вікна: {window_title}")
+        print(f"Клас вікна: {window_class}")
+        print(f"Позиція вікна: {window_position}")
+        print(f"Розмір вікна: {window_size}")
+
+
+class TelegramAppBlum(TelegramApp):
+    def __init__(self, exe_path):
+        super().__init__(exe_path)
+        self.blum_window = None
+        self.devtools = None
+
+
+    def launch_blum(self, link, sleep_before_launch=3, tries_count=30):
+        time.sleep(2)
+        old_windows = list(self.app.windows())
+
+        for i in range(tries_count):
+            self.write_to_saved_messages(link)
+            time.sleep(sleep_before_launch)
+            if click_on_img(self.main_window, 'templates\\blum\\launch.png', 0.5, 2, 0.9):
                 break
 
-        if devtools_window:
-            print(f"DevTools window found: {devtools_window.window_text()}")
-            devtools_window.move_window(x=100, y=100, width=800, height=600, repaint=True)
+        for i in range(tries_count):
+            if get_img_coords(self.main_window, 'templates\\blum\\allow_msg.png', 0.5, 10, 0.9):
+                click_on_img(self.main_window, 'templates\\blum\\OK.png', 0.5, 5, 0.9)
 
-        # for i in range(wait):                     
-        #     new_windows = list(self.app.windows())
-        #     if len(new_windows) > len(old_windows):
-        #         print('+1 window')
-        #         unique_windows = [w for w in new_windows if w not in old_windows]
-        #         self.dev_tools_window = unique_windows[0]
-        #         if self.dev_tools_window:
-        #             print('Dev Tools launched successfully!')
-        #             break
-        #     time.sleep(1)
+            new_windows = list(self.app.windows())
+            if len(new_windows) > len(old_windows):
+                unique_windows = [w for w in new_windows if w not in old_windows]
+                self.blum_window = unique_windows[0]
+                if self.blum_window:
+                    logger.info('Blum window successfully launched!')
+                    return True
+            time.sleep(1)
+
+        raise Exception('Blum window do not launched.')
+    
+
+    def manage_account_and_open_devtools(self):
+        click_on_img(self.blum_window, 'templates\\blum\\continue.png', 0.5, 10, 0.9)
+        res = find_first_image([
+            [self.blum_window, 'templates\\blum\\create_account.png', 0.5, 5, 0.9],
+            [self.blum_window, 'templates\\blum\\start_farming.png', 0.5, 5, 0.9],
+            [self.blum_window, 'templates\\blum\\currently_farming.png', 0.5, 5, 0.6],
+            [self.blum_window, 'templates\\blum\\claim.png', 0.5, 5, 0.6],
+            [self.blum_window, 'templates\\blum\\continue.png', 0.5, 5, 0.6],
+        ])
+        if 'continue' in res:
+            click_on_img(self.blum_window, 'templates\\blum\\continue.png', 0.5, 5, 0.6)
+            res = find_first_image([
+                [self.blum_window, 'templates\\blum\\create_account.png', 0.5, 5, 0.9],
+                [self.blum_window, 'templates\\blum\\start_farming.png', 0.5, 5, 0.9],
+                [self.blum_window, 'templates\\blum\\currently_farming.png', 0.5, 5, 0.6],
+                [self.blum_window, 'templates\\blum\\claim.png', 0.5, 5, 0.6],
+            ])
+        if 'currently_farming' in res:
+            logger.info('Account is currently farming!')
+        elif 'start_farming' in res:
+            logger.info('Account start farming!')
+        elif 'claim' in res:
+            logger.info('Account claim earnings!')
+            click_on_img(self.blum_window, 'templates\\blum\\claim.png', 0.5, 5, 0.6)
+            click_on_img(self.blum_window, 'templates\\blum\\start_farming.png', 0.5, 10, 0.6)
+        elif 'create_account' in res:
+            logger.info('Account start to create!')
+            self.create_account()
+        else: 
+            raise Exception("Account status not found!")
+
+        if click_on_img(self.blum_window, 'templates\\blum\\logo.png', 0.5, 5, 0.7):
+            time.sleep(0.3)
+            send_keys("{F12}")
+            time.sleep(1)
+            self.devtools = DevTools()
+        else:
+            raise Exception('Blum logo not found!')
+
+
+    def create_account(self):                                           #not implemented
+        click_on_img(self.blum_window, 'templates\\blum\\create_account.png', 0.5, 10, 0.9)
+        if get_img_coords(self.blum_window, 'templates\\blum\\blum_nickname_available.png', 0.5, 20, 0.8):
+            click_on_img(self.blum_window, 'templates\\blum\\continue.png', 0.5, 10, 0.9)
+        time.sleep(13)
+        click_on_img(self.blum_window, 'templates\\blum\\continue.png', 0.5, 50, 0.9)
+        click_on_img(self.blum_window, 'templates\\blum\\continue.png', 0.5, 20, 0.9)
+        click_on_img(self.blum_window, 'templates\\blum\\start_farming.png', 0.5, 5, 0.6)
+
+        logger.info('Account successfully created!')
+        
         
 
-    def get_windows_print(self):
-        for i in self.app.windows():
-            print(f"Title: {i.window_text()}")
+    def collect_data(self, proxy=''):
+        session_data = self.devtools.prepare_and_get_tgWebAppData()
+        local_data = self.devtools.prepare_and_get_localdata()
+        end_data = {
+            'proxy': proxy,
+            'Token':'',
+            'distinct_id': local_data['distinct_id'],
+            'device_id': local_data['device_id'],
+            'user_id': local_data['user_id'],
+            'tok': 'a663ec3881444e996e51121d5a98ce4d',
+            'queid': session_data,
+        }
+
+        return end_data
+    
+
+    def append_to_json_file(self, file_path, new_dict):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            data = []  # Якщо файл не існує, створити новий список
+        except json.JSONDecodeError:
+            data = []  # Якщо файл пустий або пошкоджений, створити новий список
+
+        # Переконатися, що дані є списком
+        if not isinstance(data, list):
+            data = []
+
+        # Додавання нового словника
+        data.append(new_dict)
+
+        # Запис оновлених даних назад у файл
+        with open(file_path, 'w', encoding='utf-8') as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+    @staticmethod
+    def test_devtools():
+        devtools = DevTools()
+        
+        session_data = devtools.prepare_and_get_tgWebAppData()
+        local_data = devtools.prepare_and_get_localdata()
+        end_data = {
+            'proxy':'---',
+            'Token':'',
+            'distinct_id': local_data['distinct_id'],
+            'device_id': local_data['device_id'],
+            'user_id': local_data['user_id'],
+            'tok': 'a663ec3881444e996e51121d5a98ce4d',
+            'queid': session_data,
+        }
+
+        for i,j in end_data.items():
+            print(f"{i}: {j}")
